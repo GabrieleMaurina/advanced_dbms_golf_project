@@ -1,0 +1,163 @@
+-- players
+
+-- list all players
+SELECT p.fcn AS FCN, p.name AS Name, p.surname AS Surname, p.bdate AS Birthday, p.gender AS Gender, p.handicap AS Handicap FROM players p ORDER BY p.fcn;
+
+-- rank players by handicap
+SELECT p.fcn AS FCN, p.name AS Name, p.surname AS Surname, p.handicap AS Handicap FROM players p ORDER BY p.handicap;
+
+-- show club info for each player
+SELECT p.fcn AS FCN, p.name AS Name, p.surname AS Surname, p.club.name AS Club, p.club.city AS Location FROM players p ORDER BY p.fcn;
+
+-- show club info for player by federal card number
+SELECT p.club.name AS Club, p.club.city AS Location FROM players p WHERE p.fcn='FC000055';
+
+-- show club info for player by name
+SELECT p.fcn AS FCN, p.name AS Name, p.surname AS Surname, p.club.name AS Club, p.club.city AS Location FROM players p WHERE p.name='John' ORDER BY p.fcn;
+
+-- show all competitions a specific player partecipated in
+SELECT VALUE(co).id AS ID, VALUE(co).name AS Competition, VALUE(co).day AS "DATE", cl.city AS Location, cl.name AS Club_Name, cl.name AS Club_Name FROM clubs cl, TABLE(cl.competitions) co, TABLE(VALUE(co).partecipants) pa WHERE pa.player.fcn='FC0010';
+
+-- find all players who only compete in competitions organized by their club
+SELECT p.fcn AS FCN FROM players p WHERE NOT EXISTS(SELECT * FROM clubs cl, TABLE(cl.competitions) co, TABLE(VALUE(co).partecipants) pa WHERE pa.player.fcn=p.fcn AND (cl.name!=p.club.name OR cl.city!=p.club.city));
+
+-- find all players who only compete in competitions organized by their club for their members only
+SELECT p.fcn AS FCN FROM players p WHERE NOT EXISTS(SELECT * FROM clubs cl, TABLE(cl.competitions) co, TABLE(VALUE(co).partecipants) pa WHERE pa.player.fcn=p.fcn AND (cl.name!=p.club.name OR cl.city!=p.club.city OR VALUE(co).reserved=0));
+
+
+
+
+
+-- clubs
+
+-- list all clubs
+SELECT DISTINCT c.name AS Club, c.city as Location, FIRST_VALUE(VALUE(t)) OVER (PARTITION BY c.name, c.city) AS Telephone FROM clubs c, TABLE(c.telephones)t ORDER BY c.name;
+
+-- list all clubs with all telephones
+SELECT DISTINCT c.name AS Club, c.city as Location, LISTAGG(VALUE(t), ',') OVER (PARTITION BY c.name, c.city) AS Telephone FROM clubs c, TABLE(c.telephones)t ORDER BY c.name;
+
+-- rank clubs by number of players
+SELECT c.name AS Club, c.city AS Location, COUNT(*) AS Players FROM players p, clubs c WHERE p.club=REF(c) GROUP BY c.name, c.city ORDER BY Players DESC;
+
+-- rank clubs by number of competitions
+SELECT c.name AS Club, c.city AS Location, COUNT(*) AS NCompetitions FROM clubs c, TABLE(c.competitions) GROUP BY c.name, c.city ORDER BY NCompetitions DESC;
+
+-- show course information for club
+SELECT ROWNUM AS Hole, VALUE(h).difficulty AS Difficulty, VALUE(h).par AS Par FROM Clubs c, TABLE(c.holes) h WHERE c.name='Miller, Simmons and Smith' AND c.city='South Shawnside';
+
+-- show club calendar for year
+SELECT VALUE(co).id AS ID, VALUE(co).name AS Competition, VALUE(co).day AS "Date", VALUE(co).sponsor AS Sponsor, VALUE(co).reserved AS Reserved FROM clubs cl, TABLE(cl.competitions) co WHERE cl.name='Miller, Hernandez and Chavez' AND cl.city='South Charleschester' AND EXTRACT(YEAR FROM VALUE(co).day)=1970 ORDER BY "Date";
+
+-- generate club calendar for year in XML
+SELECT XMLELEMENT(NAME Calendar, XMLATTRIBUTES(cl.name AS Club, cl.city AS City), XMLAGG(XMLELEMENT(NAME Competition, XMLFOREST(VALUE(co).id AS ID, VALUE(co).name AS Name, VALUE(co).day AS "Date", VALUE(co).sponsor AS Sponsor, VALUE(co).reserved AS Reserved)) ORDER BY VALUE(co).day)) AS xvalue FROM clubs cl, TABLE(cl.competitions) co WHERE cl.name='Miller, Hernandez and Chavez' AND cl.city='South Charleschester' AND EXTRACT(YEAR FROM VALUE(co).day)=1970 GROUP BY cl.name, cl.city, VALUE(co).id;
+
+
+
+
+
+
+-- competitions
+
+-- create new competition
+INSERT INTO competitions VALUES ('0n','New Competition',DATE'2021-05-02','Cox PLC','0',partecipants_set(),3,2,1,3,3,0,5,6,11,12,18,50);
+
+-- create new competition from XML (INCOMPLETA: con oracle live sql non potevo testarlo)
+INSERT INTO competitions SELECT '1n', x.name, x.day, x.sponsor, x.reserved, partecipants_set(), x.first_prizes, x.second_prizes, x.third_prizes, x.ladies_prizes, x.over_prizes, x.first_from, x.first_to, x.second_from, x.second_to, x.third_from, x.third_to, x.over_age
+FROM XMLTABLE(XMLType(bfilename('XMLDIR','GolfCompetition.xml')) COLUMNS
+    name VARCHAR(50) PATH 'name',
+    day DATE PATH 'date',
+    sponsor VARCHAR(50) PATH 'sponsor',
+    reserved INTEGER PATH 'reserved',
+    first_prizes INTEGER PATH 'category[@type="First"]/@"NumPrize"',
+    second_prizes INTEGER PATH 'category[@type="Second"]/@"NumPrize",
+    third_prizes INTEGER PATH 'category[@type="Third"]/@"NumPrize",
+    ladies_prizes INTEGER PATH 'category[@type="Lady"]/@"NumPrize",
+    over_prizes INTEGER PATH 'category[@type="Over"]/@"NumPrize",
+    first_from INTEGER PATH 'category[@type="First"]/@"From",
+    first_to INTEGER PATH 'category[@type="First"]/@"To",
+    second_from INTEGER PATH 'category[@type="Second"]/@"From",,
+    second_to INTEGER PATH 'category[@type="Second"]/@"To",
+    third_from INTEGER PATH 'category[@type="Third"]/@"From",,
+    third_to INTEGER PATH 'category[@type="Third"]/@"To",
+    over_age INTEGER PATH 'category[@type="Over"]/@"Age",
+) AS X;
+
+-- add player to competition
+INSERT INTO TABLE (SELECT c.partecipants FROM competitions c WHERE c.id='0') VALUES (t_partecipant(strokes_set(3,3,3,3,3,3,3,3,3),10,(SELECT REF(p) FROM players p WHERE p.fcn = 'FC0005')));
+INSERT INTO TABLE (SELECT c.partecipants FROM competitions c WHERE c.name='Collins, Stephens and Powers' AND c.day=DATE'1974-02-02') VALUES (t_partecipant(strokes_set(3,3,3,3,3,3,3,3,3),10,(SELECT REF(p) FROM players p WHERE p.fcn = 'FC0005')));
+
+-- remove player from competition
+DELETE FROM TABLE (SELECT c.partecipants FROM competitions c WHERE c.id='0') pa WHERE pa.player.fcn='FC0005';
+DELETE FROM TABLE (SELECT c.partecipants FROM competitions c WHERE c.name='Collins, Stephens and Powers' AND c.day=DATE'1974-02-02') pa WHERE pa.player.fcn='FC0005';
+
+-- update player performance to competition
+UPDATE TABLE(SELECT partecipants FROM competitions c WHERE c.id='0') pa SET pa.strokes=strokes_set(1,1,1,1,1,1,1,1,1) WHERE pa.player.fcn='FC0005';
+UPDATE TABLE(SELECT partecipants FROM competitions c WHERE c.name='Collins, Stephens and Powers' AND c.day=DATE'1974-02-02') pa SET pa.strokes=strokes_set(1,1,1,1,1,1,1,1,1) WHERE pa.player.fcn='FC0005';
+
+-- list all competitions sorted by date
+SELECT VALUE(co).id AS ID, VALUE(co).name AS Competition, VALUE(co).day AS "Date", cl.name AS Club, cl.city AS Location FROM clubs cl, TABLE(cl.competitions) co ORDER BY "Date" DESC;
+
+-- list all competitions sorted by number of partecipants
+SELECT COUNT(*) AS "N Partecipants", VALUE(co).id AS ID, VALUE(co).name AS Competition, VALUE(co).day AS "Date", cl.name AS Club, cl.city AS Location FROM clubs cl, TABLE(cl.competitions) co, TABLE(VALUE(co).partecipants) pa GROUP BY VALUE(co).id, VALUE(co).name, VALUE(co).day, cl.name, cl.city ORDER BY "N Partecipants" DESC;
+
+-- list all competitions of specific club
+SELECT VALUE(co).id AS ID, VALUE(co).name AS Competition, VALUE(co).day AS "Date", cl.name AS Club, cl.city AS Location FROM clubs cl, TABLE(cl.competitions) co WHERE cl.name='Miller, Hernandez and Chavez' AND cl.city='South Charleschester' ORDER BY "Date" DESC;
+
+-- show club info of competition
+SELECT VALUE(co).name AS Competition, VALUE(co).day AS "Date", cl.name AS Club, cl.city AS Location FROM clubs cl, TABLE(cl.competitions) co WHERE VALUE(co).id='0' ORDER BY "Date" DESC;
+SELECT VALUE(co).name AS Competition, VALUE(co).day AS "Date", cl.name AS Club, cl.city AS Location FROM clubs cl, TABLE(cl.competitions) co WHERE VALUE(co).name='Collins, Stephens and Powers' AND VALUE(co).day=DATE'1974-02-02' ORDER BY "Date" DESC;
+
+-- list partecipants of competition
+SELECT p.player.fcn AS FCN, p.player.name AS Name FROM competitions c, TABLE(c.partecipants) p WHERE c.id='0';
+SELECT p.player.fcn AS FCN, p.player.name AS Name FROM competitions c, TABLE(c.partecipants) p WHERE c.name='Collins, Stephens and Powers' AND c.day=DATE'1974-02-02';
+
+-- for a specific competition find a golfer performance
+SELECT ROWNUM AS Hole, VALUE(s) AS Strokes FROM competitions c, TABLE(c.partecipants) pa, TABLE(pa.strokes) s WHERE c.name='Collins, Stephens and Powers' AND c.day=DATE'1974-02-02' AND pa.player.fcn='FC0030';
+
+-- for a specific competition find each golfer number of holes completed
+SELECT p.player.fcn AS fcn, COUNT(*) AS holes FROM competitions c, TABLE(c.partecipants) p, TABLE(p.strokes) WHERE c.name='Collins, Stephens and Powers' AND c.day=DATE'1974-02-02' GROUP BY p.player.fcn;
+
+-- for a specific competition find golfers who did not finish
+SELECT p.fcn AS FCN, p.name AS Name, p.surname AS Surname, h.holes AS Holes FROM players p, (SELECT p.player.fcn AS fcn, COUNT(*) AS holes FROM competitions c, TABLE(c.partecipants) p, TABLE(p.strokes) WHERE c.name='Collins, Stephens and Powers' AND c.day=DATE'1974-02-02' GROUP BY p.player.fcn) h WHERE p.fcn=h.fcn AND h.holes<9 ORDER BY Holes DESC;
+
+-- get score of player in competition
+SELECT pa.player.name AS Player, pa.get_score(cl.holes) AS Score FROM clubs cl, TABLE(cl.competitions) co, TABLE(VALUE(co).partecipants) pa WHERE pa.player.fcn='FC0016' AND VALUE(co).id='0';
+
+-- find overall ranking of competition
+SELECT pa.player.fcn AS FCN, pa.player.name AS Player, pa.get_score(cl.holes) AS Score FROM clubs cl, TABLE(cl.competitions) co, TABLE(VALUE(co).partecipants) pa WHERE VALUE(co).id='0' ORDER BY Score DESC;
+
+-- find overall ranking of competition in XML
+SELECT XMLELEMENT(NAME OverallRanking, XMLAGG(XMLELEMENT(NAME Player, XMLATTRIBUTES(pa.player.fcn AS FCN), XMLFOREST(pa.get_score(cl.holes) AS Score, pa.below_par(cl.holes) AS BelowPar)) ORDER BY pa.get_score(cl.holes) DESC)) AS xvalue FROM clubs cl, TABLE(cl.competitions) co, TABLE(VALUE(co).partecipants) pa WHERE VALUE(co).id='0' GROUP BY VALUE(co);
+
+-- find ranking of competition for first category
+SELECT pa.player.fcn AS FCN, pa.player.name AS Player, pa.get_score(cl.holes) AS Score FROM clubs cl, TABLE(cl.competitions) co, TABLE(VALUE(co).partecipants) pa WHERE VALUE(co).id='0' AND pa.handicap >= VALUE(co).first_from AND pa.handicap <= VALUE(co).first_to ORDER BY Score DESC;
+
+-- find ranking of competition for first category in XML
+SELECT XMLELEMENT(NAME FirstRanking, XMLAGG(XMLELEMENT(NAME Player, XMLATTRIBUTES(pa.player.fcn AS FCN), XMLFOREST(pa.get_score(cl.holes) AS Score, pa.below_par(cl.holes) AS BelowPar)) ORDER BY pa.get_score(cl.holes) DESC)) AS xvalue FROM clubs cl, TABLE(cl.competitions) co, TABLE(VALUE(co).partecipants) pa WHERE VALUE(co).id='0' AND VALUE(co).first_prizes>0 AND pa.handicap >= VALUE(co).first_from AND pa.handicap <= VALUE(co).first_to GROUP BY VALUE(co);
+
+-- find ranking of competition for second category
+SELECT pa.player.fcn AS FCN, pa.player.name AS Player, pa.get_score(cl.holes) AS Score FROM clubs cl, TABLE(cl.competitions) co, TABLE(VALUE(co).partecipants) pa WHERE VALUE(co).id='0' AND pa.handicap >= VALUE(co).second_from AND pa.handicap <= VALUE(co).second_to ORDER BY Score DESC;
+
+-- find ranking of competition for second category in XML
+SELECT XMLELEMENT(NAME SecondRanking, XMLAGG(XMLELEMENT(NAME Player, XMLATTRIBUTES(pa.player.fcn AS FCN), XMLFOREST(pa.get_score(cl.holes) AS Score, pa.below_par(cl.holes) AS BelowPar)) ORDER BY pa.get_score(cl.holes) DESC)) AS xvalue FROM clubs cl, TABLE(cl.competitions) co, TABLE(VALUE(co).partecipants) pa WHERE VALUE(co).id='0' AND VALUE(co).second_prizes>0 AND pa.handicap >= VALUE(co).second_from AND pa.handicap <= VALUE(co).second_to GROUP BY VALUE(co);
+
+-- find ranking of competition for third category
+SELECT pa.player.fcn AS FCN, pa.player.name AS Player, pa.get_score(cl.holes) AS Score FROM clubs cl, TABLE(cl.competitions) co, TABLE(VALUE(co).partecipants) pa WHERE VALUE(co).id='0' AND pa.handicap >= VALUE(co).third_from AND pa.handicap <= VALUE(co).third_to ORDER BY Score DESC;
+
+-- find ranking of competition for third category in XML
+SELECT XMLELEMENT(NAME ThirdRanking, XMLAGG(XMLELEMENT(NAME Player, XMLATTRIBUTES(pa.player.fcn AS FCN), XMLFOREST(pa.get_score(cl.holes) AS Score, pa.below_par(cl.holes) AS BelowPar)) ORDER BY pa.get_score(cl.holes) DESC)) AS xvalue FROM clubs cl, TABLE(cl.competitions) co, TABLE(VALUE(co).partecipants) pa WHERE VALUE(co).id='0' AND VALUE(co).third_prizes>0 AND pa.handicap >= VALUE(co).third_from AND pa.handicap <= VALUE(co).third_to GROUP BY VALUE(co);
+
+-- find ranking of competition for ladies category
+SELECT pa.player.fcn AS FCN, pa.player.name AS Player, pa.get_score(cl.holes) AS Score FROM clubs cl, TABLE(cl.competitions) co, TABLE(VALUE(co).partecipants) pa WHERE VALUE(co).id='0' AND pa.player.gender='f' ORDER BY Score DESC;
+
+-- find ranking of competition for ladies category in XML
+SELECT XMLELEMENT(NAME LadiesRanking, XMLAGG(XMLELEMENT(NAME Player, XMLATTRIBUTES(pa.player.fcn AS FCN), XMLFOREST(pa.get_score(cl.holes) AS Score, pa.below_par(cl.holes) AS BelowPar)) ORDER BY pa.get_score(cl.holes) DESC)) AS xvalue FROM clubs cl, TABLE(cl.competitions) co, TABLE(VALUE(co).partecipants) pa WHERE VALUE(co).id='0' AND VALUE(co).ladies_prizes>0 AND pa.player.gender='f' GROUP BY VALUE(co);
+
+-- find ranking of competition for over category
+SELECT pa.player.fcn AS FCN, pa.player.name AS Player, pa.player.bdate AS BDate, pa.get_score(cl.holes) AS Score FROM clubs cl, TABLE(cl.competitions) co, TABLE(VALUE(co).partecipants) pa WHERE VALUE(co).id='0' AND ADD_MONTHS(pa.player.bdate, 12 * VALUE(co).over_age) < CURRENT_DATE ORDER BY Score DESC;
+
+-- find ranking of competition for over category in XML
+SELECT XMLELEMENT(NAME OverRanking, XMLAGG(XMLELEMENT(NAME Player, XMLATTRIBUTES(pa.player.fcn AS FCN), XMLFOREST(pa.get_score(cl.holes) AS Score, pa.below_par(cl.holes) AS BelowPar)) ORDER BY pa.get_score(cl.holes) DESC)) AS xvalue FROM clubs cl, TABLE(cl.competitions) co, TABLE(VALUE(co).partecipants) pa WHERE VALUE(co).id='0' AND VALUE(co).over_prizes>0 AND ADD_MONTHS(pa.player.bdate, 12 * VALUE(co).over_age) < CURRENT_DATE GROUP BY VALUE(co);
+
+-- find all players who played below par in competition
+SELECT pa.player.fcn AS FCN, pa.player.name AS Player, pa.get_score(cl.holes) AS Score FROM clubs cl, TABLE(cl.competitions) co, TABLE(VALUE(co).partecipants) pa WHERE VALUE(co).id='0' AND pa.below_par(cl.holes)=1 ORDER BY Score DESC;

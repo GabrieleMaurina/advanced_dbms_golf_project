@@ -1,0 +1,171 @@
+-- holes
+
+CREATE TYPE t_hole AS OBJECT(
+par INTEGER,
+difficulty INTEGER
+)INSTANTIABLE FINAL;
+/
+
+CREATE TYPE holes_set AS VARRAY(9) OF t_hole;
+/
+
+
+
+
+
+-- partecipants
+
+CREATE TYPE strokes_set AS VARRAY(9) OF INTEGER;
+/
+
+CREATE TYPE t_player;
+/
+
+CREATE TYPE t_partecipant AS OBJECT(
+strokes strokes_set,
+handicap INTEGER,
+player REF t_player,
+MEMBER FUNCTION get_score (holes holes_set) RETURN INTEGER,
+MEMBER FUNCTION below_par (holes holes_set) RETURN INTEGER
+)INSTANTIABLE FINAL;
+/
+
+CREATE TYPE BODY t_partecipant AS
+
+    MEMBER FUNCTION get_score(holes holes_set) RETURN INTEGER IS
+    res INTEGER;
+    BEGIN
+        WITH
+            strokes_numbered(hole, nstrokes) AS (SELECT ROWNUM AS hole, VALUE(s) AS nstrokes FROM TABLE(strokes) s),
+            holes_by_difficulty(hole, par, difficulty) AS (SELECT ROWNUM AS hole, VALUE(h).par AS par, VALUE(h).difficulty AS difficulty FROM TABLE(holes) h ORDER BY difficulty DESC),
+            holes_adjusted_par(hole, adjusted_par) AS (SELECT h.hole AS hole, h.par + TRUNC(SELF.handicap / 9) + (CASE WHEN ROWNUM <= MOD(SELF.handicap, 9) THEN 1 ELSE 0 END) AS adjusted_par FROM holes_by_difficulty h ORDER BY hole DESC)
+        SELECT SUM(GREATEST(LEAST(hap.adjusted_par - sn.nstrokes + 2, 5), 0)) INTO res FROM strokes_numbered sn INNER JOIN holes_adjusted_par hap ON sn.hole=hap.hole;
+        RETURN res;
+    END;
+    
+    MEMBER FUNCTION below_par(holes holes_set) RETURN INTEGER IS
+    res INTEGER := 0;
+    BEGIN
+        WITH
+            strokes_numbered(hole, nstrokes) AS (SELECT ROWNUM AS hole, VALUE(s) AS nstrokes FROM TABLE(strokes) s),
+            holes_by_difficulty(hole, par, difficulty) AS (SELECT ROWNUM AS hole, VALUE(h).par AS par, VALUE(h).difficulty AS difficulty FROM TABLE(holes) h ORDER BY difficulty DESC),
+            holes_adjusted_par(hole, adjusted_par) AS (SELECT h.hole AS hole, h.par + TRUNC(SELF.handicap / 9) + (CASE WHEN ROWNUM <= MOD(SELF.handicap, 9) THEN 1 ELSE 0 END) AS adjusted_par FROM holes_by_difficulty h ORDER BY hole DESC),
+            score(score) AS (SELECT GREATEST(LEAST(hap.adjusted_par - sn.nstrokes + 2, 5), 0) as score FROM strokes_numbered sn INNER JOIN holes_adjusted_par hap ON sn.hole=hap.hole),
+            positive_score(amount, quantity) AS (SELECT SUM(s.score) AS amount, COUNT(*) AS quantity FROM score s WHERE s.score > 1)
+        SELECT COUNT(*) INTO res FROM positive_score ps WHERE ps.amount >= 18 AND ps.quantity = 9;
+        RETURN res;
+    END;
+END;
+/
+
+CREATE TYPE partecipants_set AS TABLE OF t_partecipant;
+/
+
+
+
+
+
+-- competitions
+
+CREATE TYPE t_competition AS OBJECT(
+id VARCHAR(5),
+name VARCHAR(50),
+day DATE,
+sponsor VARCHAR(50),
+reserved INTEGER,
+partecipants partecipants_set,
+first_prizes INTEGER,
+second_prizes INTEGER,
+third_prizes INTEGER,
+ladies_prizes INTEGER,
+over_prizes INTEGER,
+first_from INTEGER,
+first_to INTEGER,
+second_from INTEGER,
+second_to INTEGER,
+third_from INTEGER,
+third_to INTEGER,
+over_age INTEGER
+)INSTANTIABLE FINAL;
+/
+
+CREATE TYPE competitions_set AS TABLE OF REF t_competition;
+/
+
+CREATE TABLE competitions OF t_competition(
+name NOT NULL,
+day NOT NULL,
+reserved NOT NULL,
+first_prizes NOT NULL,
+second_prizes  NOT NULL,
+third_prizes  NOT NULL,
+ladies_prizes  NOT NULL,
+over_prizes  NOT NULL,
+first_from NOT NULL,
+first_to NOT NULL,
+second_from NOT NULL,
+second_to NOT NULL,
+third_from NOT NULL,
+third_to NOT NULL,
+over_age NOT NULL,
+PRIMARY KEY(id)
+)NESTED TABLE partecipants STORE AS tab_partecipants;
+/
+
+CREATE UNIQUE INDEX unique_name_year ON competitions(name, EXTRACT(YEAR FROM day));
+/
+
+
+
+
+
+-- clubs
+
+CREATE TYPE telephones_set AS TABLE OF VARCHAR(25);
+/
+
+CREATE TYPE t_club AS OBJECT(
+name VARCHAR(50),
+city VARCHAR(50),
+telephones telephones_set,
+holes holes_set,
+competitions competitions_set
+)INSTANTIABLE FINAL;
+/
+
+CREATE TABLE clubs OF t_club(
+holes NOT NULL,
+PRIMARY KEY(name, city)
+)NESTED TABLE telephones STORE AS tab_telephones,
+NESTED TABLE competitions STORE AS tab_competitions;
+/
+
+
+
+
+
+-- players
+
+CREATE TYPE t_player AS OBJECT(
+fcn CHAR(6),
+name VARCHAR(50),
+surname VARCHAR(50),
+bdate DATE,
+gender CHAR(1),
+handicap INTEGER,
+club REF t_club
+)INSTANTIABLE FINAL;
+/
+
+CREATE TABLE players OF t_player(
+name NOT NULL,
+surname NOT NULL,
+bdate NOT NULL,
+gender NOT NULL,
+handicap NOT NULL,
+club SCOPE IS clubs NOT NULL,
+PRIMARY KEY(fcn),
+CONSTRAINT genders CHECK(gender IN ('m','f')),
+CONSTRAINT handicap_range CHECK(handicap BETWEEN 0 AND 18)
+);
+/

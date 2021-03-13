@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GolfCompetition xsi:noNamespaceSchemaLocation="GolfCompetition.xsd"  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+	<Name Id="324">Coppa del Presidente</Name>
+	<Date>2009-12-25</Date>
+	<Sponsor>Lavazza S.p.A</Sponsor>
+	<Category NumPrize="3" From="0" To="12" Type="First"/>
+	<Category NumPrize="3" From="13" To="24" Type="Second"/>
+	<Category NumPrize="2" From="25" To="36" Type="Third"/>
+	<Category NumPrize="1" Type="Lady"/>
+	<Category NumPrize="1" Type="Over" Age="40"/>
+</GolfCompetition>
+

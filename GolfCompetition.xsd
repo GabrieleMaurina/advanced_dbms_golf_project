@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified" attributeFormDefault="unqualified">
+	<xs:element name="GolfCompetition">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="Name">
+					<xs:complexType>
+						<xs:simpleContent>
+							<xs:extension base="xs:string">
+							<xs:attribute name="Id" type="xs:string" />
+							</xs:extension>
+						</xs:simpleContent>
+					</xs:complexType>
+				</xs:element>	
+				<xs:element name="Date" type="xs:date" minOccurs="0"/>
+				<xs:element name="Sponsor" type="xs:string"/>
+				<xs:element name="Category" maxOccurs="7">
+					<xs:complexType>
+						<xs:attribute name="From" type="HandicapT"/>
+						<xs:attribute name="To" type="HandicapT"/>
+						<xs:attribute name="Type" type="CategoryType" use="required"/>
+						<xs:attribute name="NumPrize" type="NumPrizeT" use="required"/>
+						<xs:attribute name="Age" type="xs:integer"/>
+					</xs:complexType>
+				</xs:element>
+				<xs:element name="Reserved" type="xs:boolean" minOccurs="0"/>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+	<xs:simpleType name="HandicapT">
+		<xs:restriction base="xs:integer">
+			<xs:minInclusive value="0"/>
+			<xs:maxInclusive value="18"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="CategoryType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="First"/>
+			<xs:enumeration value="Second"/>
+			<xs:enumeration value="Third"/>
+			<xs:enumeration value="Forth"/>
+			<xs:enumeration value="Fifth"/>
+			<xs:enumeration value="Lady"/>
+			<xs:enumeration value="Over"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="NumPrizeT">
+		<xs:restriction base="xs:integer">
+			<xs:minInclusive value="1"/>
+			<xs:maxInclusive value="3"/>
+		</xs:restriction>
+	</xs:simpleType>
+</xs:schema>

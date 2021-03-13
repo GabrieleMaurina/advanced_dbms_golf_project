@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Golfscore xsi:noNamespaceSchemaLocation="Golfscore.xsd" 
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+	<Name Id="324">President's Cup</Name>
+	<Player>FC1001</Player>
+	<Results>
+		<Hole Number="1" par="3" difficulty="9">3</Hole> 
+		<Hole Number="2" par="4" difficulty="3">5</Hole> 
+		<Hole Number="3" par="4" difficulty="4">4</Hole>
+		<Hole Number="4" par="5" difficulty="2">6</Hole> 
+		<Hole Number="5" par="3" difficulty="7">4</Hole>
+		<Hole Number="6" par="4" difficulty="8">5</Hole> 
+		<Hole Number="7" par="4" difficulty="6">4</Hole>
+		<Hole Number="8" par="5" difficulty="1">3</Hole> 
+		<Hole Number="9" par="3" difficulty="5">4</Hole>
+	</Results>
+</Golfscore>

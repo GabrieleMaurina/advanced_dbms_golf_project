@@ -1,0 +1,17 @@
+Note sul db relativo alle competizioni di golf:
+
+Si assume che ogni club abbia uno ed uno solo campo di golf.
+
+Si assume che nessun giocatore possa mai cambiare club.
+
+Un campo è memorizzato come varray di 9 coppie (par,difficulty). Non è necessario memorizzare il numero della buca, poichè un varray mantiene l'ordine con cui è creato.
+
+Lo score di un giocatore in una competizione non viene memorizzato. Viene invece memorizzato il numero di colpi che il giocatore ha utilizzato per completare ogni buca. In questo modo sarà possibile ottenere sempre il suo punteggio attraverso una query. Non è necessario registrare se un giocatore si è ritirato, poichè in tal caso il varray sarebbe più corto di 9.
+
+L'handicap di ogni giocatore viene memorizzato nella tabella players. Viene inoltre memorizzato all'interno di ogni competizione. Questo perchè l'handicap di un giocatore può evolvere durante la sua carriera e non solo volgiamo sapere l'handicap attuale, ma vogliamo anche conoscere l'handicap che aveva in qualsiasi competizione in cui abbia partecipato.
+
+Il metodo get_score di t_partecipant riceve un campo da golf e restituisce lo score del giocatore. Il metodo below_par di t_partecipant riceve un campo da golf e restituisce 1 se il giocatore ha giocato below par, altrimenti 0.
+
+Il database non può impedire che lo stesso giocatore venga iscritto 2 volte alla stessa competizione, non è possibile infatti applicare costraints ad una nested table. Risulta quindi necessario prestare attenzione in fase di iscrizione dei giocatori.
+
+Il database non impedisce che un giocatore si iscriva ad una competizione riservata ad i membri di un club a cui non appartiene, questo perchè potrebbero esserci dei casi in cui si vogliano invitare ospiti esterni ad una competizione riservata.
